@@ -23,6 +23,7 @@ int main(int argc, char *argv[])
     pam_handle_t *pamh=NULL;
     int retval;
     const char *user="nobody";
+    const char* pUsername = NULL;
 
     if(argc == 2) {
         user = argv[1];
@@ -33,7 +34,7 @@ int main(int argc, char *argv[])
         exit(1);
     }
 
-    retval = pam_start("check_user", user, &conv, &pamh);
+    retval = pam_start("test", user, &conv, &pamh);
         
     if (retval == PAM_SUCCESS)
         retval = pam_authenticate(pamh, 0);    /* is user really user? */
@@ -44,7 +45,8 @@ int main(int argc, char *argv[])
     /* This is where we have been authorized or not. */
 
     if (retval == PAM_SUCCESS) {
-        fprintf(stdout, "Authenticated\n");
+	pam_get_item(pamh, PAM_USER, (const void**)&pUsername);
+        fprintf(stdout, "Authenticated %s\n", pUsername);
     } else {
         fprintf(stdout, "Not Authenticated: %s\n", pam_strerror(pamh, retval));
     }

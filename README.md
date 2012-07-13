@@ -5,7 +5,7 @@ This module is heavily inspired by the pam-http module by Kragen Sitaker. I rewr
 
 This works with libcurl v. 7.21.3 (the one in Ubuntu's repositories).
 
-To build, just type `make`. It will create `mypam.so` and a `test` executable.
+To build, just type `make`. It will create `pam_http.so` and a `test` executable.
 
 Simple Usage
 ------------
@@ -16,8 +16,8 @@ The config files are located in `/etc/pam.d/` and the one I changed was `/etc/pa
 
 Put something like this in one of the config files (change the URL to whatever you like):
 
-	auth sufficient mypam.so url=https://localhost:2000
-	account sufficient mypam.so
+	auth sufficient pam_http.so url=https://localhost:2000
+	account sufficient pam_http.so
 
 Sufficient basically means that if this authentication method succeeds, the user is given access.
 
