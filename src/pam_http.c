@@ -8,7 +8,6 @@
 
 // libcurl
 #include <curl/curl.h>
-#include <curl/types.h>
 #include <curl/easy.h>
 
 /* expected hook */
@@ -72,7 +71,7 @@ static int writeFn(void* buf, size_t len, size_t size, void* userdata) {
 	return len * size;
 }
 
-static int perform_authentication(const char* pUrl, const char* pUsername, const char* pPassword, const char* pCaFile, const char* pKey) {
+static int perform_authentication(const char* pUrl, const char* pUsername, const char* pPassword, const char* pCaFile, const char* pKey, const int timeout) {
 //	printf("Start stuff\n");
 
 	CURL* pCurl = curl_easy_init();
@@ -100,7 +99,7 @@ static int perform_authentication(const char* pUrl, const char* pUsername, const
 //	curl_easy_setopt(pCurl, CURLOPT_HEADERFUNCTION, _read_headers);
 //	curl_easy_setopt(pCurl,	CURLOPT_WRITEHEADER, stderr);
 	// we don't want to leave our user waiting at the login prompt forever
-	curl_easy_setopt(pCurl, CURLOPT_TIMEOUT, 10);
+	curl_easy_setopt(pCurl, CURLOPT_TIMEOUT, timeout);
 
 
 	if (pKey) {
@@ -165,11 +164,14 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t* pamh, int flags, int argc, cons
 	const char* pUrl = NULL;
 	const char* pCaFile = NULL;
 	const char* pKey = NULL;
+	const char* pTimeout = NULL;
 
 	struct pam_message msg;
 	struct pam_conv* pItem;
 	struct pam_response* pResp;
 	const struct pam_message* pMsg = &msg;
+
+    int timeout = 10;
 
 	msg.msg_style = PAM_PROMPT_ECHO_OFF;
 	msg.msg = "Password: ";
@@ -191,13 +193,19 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t* pamh, int flags, int argc, cons
 		return PAM_AUTH_ERR;
 	}
 
+	pTimeout = _get_argument("timeout", argc, argv);
+	if (!pTimeout) {
+		timeout = atoi(pTimeout);
+        if (timeout < 1) timeout = 1;
+	}
+
 	pKey = _get_argument("key", argc, argv);
 
 	pItem->conv(1, &pMsg, &pResp, pItem->appdata_ptr);
 
 	ret = PAM_SUCCESS;
 
-	if (perform_authentication(pUrl, pUsername, pResp[0].resp, pCaFile, pKey) != 0) {
+	if (perform_authentication(pUrl, pUsername, pResp[0].resp, pCaFile, pKey, timeout) != 0) {
 		ret = PAM_AUTH_ERR;
 	}
 	
