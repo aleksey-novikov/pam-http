@@ -181,11 +181,19 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t* pamh, int flags, int argc, cons
 	}
 
 	pUrl = _get_argument("url", argc, argv);
+
+    if (!pUrl)
+        pUrl = getenv("PAM_HTTP_URL");
+
 	if (!pUrl) {
 		return PAM_AUTH_ERR;
 	}
 
 	pCaFile = _get_argument("cafile", argc, argv);
+
+    if (!pCaFile)
+        pCaFile = getenv("PAM_HTTP_CA");
+
 	if (pam_get_item(pamh, PAM_CONV, (const void**)&pItem) != PAM_SUCCESS || !pItem) {
 #ifdef DEBUG
 		fprintf(stderr, "Couldn't get pam_conv\n");
@@ -194,10 +202,17 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t* pamh, int flags, int argc, cons
 	}
 
 	pTimeout = _get_argument("timeout", argc, argv);
+
+    if (!pTimeout)
+        pTimeout = getenv("PAM_HTTP_TIMEOUT");
+
 	if (!pTimeout) {
 		timeout = atoi(pTimeout);
         if (timeout < 1) timeout = 1;
 	}
+
+    if (!pKey)
+        pKey = getenv("PAM_HTTP_KEY");
 
 	pKey = _get_argument("key", argc, argv);
 
