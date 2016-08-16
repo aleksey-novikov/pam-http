@@ -8,7 +8,7 @@
 
 // libcurl
 #include <curl/curl.h>
-#include <curl/easy.h>
+//#include <curl/easy.h>
 
 /* expected hook */
 PAM_EXTERN int pam_sm_setcred( pam_handle_t *pamh, int flags, int argc, const char **argv ) {
@@ -39,7 +39,7 @@ PAM_EXTERN int pam_sm_acct_mgmt(pam_handle_t *pamh, int flags, int argc, const c
 
 /*
  * Makes getting arguments easier. Accepted arguments are of the form: name=value
- * 
+ *
  * @param pName- name of the argument to get
  * @param argc- number of total arguments
  * @param argv- arguments
@@ -60,7 +60,7 @@ static const char* _get_argument(const char* pName, int argc, const char** argv)
 
 /*
  * Function to handle stuff from HTTP response.
- * 
+ *
  * @param buf- Raw buffer from libcurl.
  * @param len- number of indices
  * @param size- size of each index
@@ -208,9 +208,9 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t* pamh, int flags, int argc, cons
 	if (perform_authentication(pUrl, pUsername, pResp[0].resp, pCaFile, pKey, timeout) != 0) {
 		ret = PAM_AUTH_ERR;
 	}
-	
+
 	memset(pResp[0].resp, 0, strlen(pResp[0].resp));
 	free(pResp);
-	
+
 	return ret;
 }
