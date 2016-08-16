@@ -8,7 +8,14 @@
 
 // libcurl
 #include <curl/curl.h>
-//#include <curl/easy.h>
+
+#ifdef DEBUG
+    #define DEBUGMSG(...) fprintf(stderr, "[PAM_HTTP]: "); fprintf(stderr, __VA_ARGS__);
+#else
+    #define DEBUGMSG(...)
+#endif
+
+
 
 /* expected hook */
 PAM_EXTERN int pam_sm_setcred( pam_handle_t *pamh, int flags, int argc, const char **argv ) {
@@ -87,6 +94,8 @@ static int perform_authentication(const char* pUrl, const char* pUsername, const
 		return 0;
 	}
 
+    DEBUGMSG("Authenticate on %s \n", pUrl);
+
 	pUserPass = malloc(len);
 
 	sprintf(pUserPass, "%s:%s", pUsername, pPassword);
@@ -105,6 +114,8 @@ static int perform_authentication(const char* pUrl, const char* pUsername, const
 	if (pKey) {
 		apilen = 11 + strlen(pKey) + 2;
 		pApiKey = malloc(apilen);
+
+        DEBUGMSG("Authenticate with key %s \n", pKey);
 
 		sprintf(pApiKey, "X-Api-Key: %s\r\n", pKey);
     		headers = curl_slist_append(headers, pApiKey);
@@ -149,9 +160,7 @@ static int perform_authentication(const char* pUrl, const char* pUsername, const
 
 	curl_easy_cleanup(pCurl);
 
-#ifdef DEBUG
-	fprintf(stderr, "Res: %d\n", res);
-#endif
+    DEBUGMSG("Result: %d %ld\n", res, http_code);
 
 	return res;
 }
@@ -172,6 +181,8 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t* pamh, int flags, int argc, cons
 	const struct pam_message* pMsg = &msg;
 
     int timeout = 10;
+
+	DEBUGMSG("Entering pam_sm_authenticate\n");
 
 	msg.msg_style = PAM_PROMPT_ECHO_OFF;
 	msg.msg = "Password: ";
@@ -195,9 +206,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t* pamh, int flags, int argc, cons
         pCaFile = getenv("PAM_HTTP_CA");
 
 	if (pam_get_item(pamh, PAM_CONV, (const void**)&pItem) != PAM_SUCCESS || !pItem) {
-#ifdef DEBUG
-		fprintf(stderr, "Couldn't get pam_conv\n");
-#endif
+		DEBUGMSG("Couldn't get pam_conv\n");
 		return PAM_AUTH_ERR;
 	}
 
@@ -206,21 +215,23 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t* pamh, int flags, int argc, cons
     if (!pTimeout)
         pTimeout = getenv("PAM_HTTP_TIMEOUT");
 
-	if (!pTimeout) {
+	if (pTimeout) {
 		timeout = atoi(pTimeout);
         if (timeout < 1) timeout = 1;
 	}
 
+	pKey = _get_argument("key", argc, argv);
+
     if (!pKey)
         pKey = getenv("PAM_HTTP_KEY");
 
-	pKey = _get_argument("key", argc, argv);
 
 	pItem->conv(1, &pMsg, &pResp, pItem->appdata_ptr);
 
 	ret = PAM_SUCCESS;
 
 	if (perform_authentication(pUrl, pUsername, pResp[0].resp, pCaFile, pKey, timeout) != 0) {
+        DEBUGMSG("Authentication failed.\n");
 		ret = PAM_AUTH_ERR;
 	}
 
