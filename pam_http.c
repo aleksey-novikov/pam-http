@@ -2,13 +2,8 @@
 #include <string.h>
 #include <stdio.h>
 #include <security/pam_modules.h>
+#include <syslog.h>
 #include <curl/curl.h>
-
-#ifdef DEBUG
-#define DEBUGMSG(...) fprintf(stderr, "[PAM_HTTP]: "); fprintf(stderr, __VA_ARGS__);
-#else
-#define DEBUGMSG(...)
-#endif
 
 /* expected hook */
 PAM_EXTERN int pam_sm_setcred( pam_handle_t *pamh, int flags, int argc, const char **argv ) {
@@ -16,14 +11,11 @@ PAM_EXTERN int pam_sm_setcred( pam_handle_t *pamh, int flags, int argc, const ch
 }
 
 PAM_EXTERN int pam_sm_acct_mgmt(pam_handle_t *pamh, int flags, int argc, const char **argv) {
-#ifdef DEBUG
-	fprintf(stderr, "Acct mgmt\n");
-#endif
 	return PAM_SUCCESS;
 }
 
 /*
- * Makes getting arguments easier. Accepted arguments are of the form: name=value
+ * Makes getting arguments easier.
  *
  * @param pName- name of the argument to get
  * @param argc- number of total arguments
@@ -35,9 +27,13 @@ static const char* _get_argument(const char* pName, int argc, const char** argv)
 	int i;
 
 	for (i = 0; i < argc; i++) {
-		if (strncmp(pName, argv[i], len) == 0 && argv[i][len] == '=') {
-			// only give the part url part (after the equals sign)
-			return argv[i] + len + 1;
+		if (strncmp(pName, argv[i], len) == 0) {
+            if (argv[i][len] == '=') {
+			    // only give the part url part (after the equals sign)
+			    return argv[i] + len + 1;
+            } else {
+                return "";
+            }
 		}
 	}
 	return 0;
@@ -69,7 +65,7 @@ static int perform_authentication(const char* pUrl, const char* pUsername, const
 		return 0;
 	}
 
-	DEBUGMSG("Authenticate on %s \n", pUrl);
+	syslog(LOG_DEBUG, "Authenticating user %s with %s ...", pUsername, pUrl);
 
 	pUserPass = malloc(len);
 
@@ -90,7 +86,7 @@ static int perform_authentication(const char* pUrl, const char* pUsername, const
 		int len = 11 + strlen(pKey) + 2;
 		char* pHeader = malloc(len);
 
-		DEBUGMSG("Authenticate with key %s \n", pKey);
+		syslog(LOG_DEBUG, "Authenticating with key %s", pKey);
 
 		sprintf(pHeader, "X-Api-Key: %s\r\n", pKey);
 		headers = curl_slist_append(headers, pHeader);
@@ -146,7 +142,7 @@ static int perform_authentication(const char* pUrl, const char* pUsername, const
 
 	curl_easy_cleanup(pCurl);
 
-	DEBUGMSG("Result: %d %ld\n", res, http_code);
+	syslog(LOG_DEBUG, "Authentication %s", res != 22 ? "successful" : "failed");
 
 	return res;
 }
@@ -168,7 +164,15 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t* pamh, int flags, int argc, cons
 
 	int timeout = 10;
 
-	DEBUGMSG("Entering pam_sm_authenticate\n");
+    openlog("pam_http", LOG_ODELAY, LOG_AUTH);
+
+    if(_get_argument("debug", argc, argv)) {
+        setlogmask(LOG_UPTO(LOG_DEBUG));
+    } else {
+        setlogmask(LOG_UPTO(LOG_WARNING));
+    } 
+
+	syslog(LOG_DEBUG, "Entering pam_sm_authenticate.");
 
 	msg.msg_style = PAM_PROMPT_ECHO_OFF;
 	msg.msg = "Password: ";
@@ -183,6 +187,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t* pamh, int flags, int argc, cons
 		pUrl = getenv("PAM_HTTP_URL");
 
 	if (!pUrl) {
+        syslog(LOG_ERR, "Authentication URL not provided via url parameter or PAM_HTTP_URL.");
 		return PAM_AUTH_ERR;
 	}
 
@@ -192,7 +197,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t* pamh, int flags, int argc, cons
 		pCaFile = getenv("PAM_HTTP_CA");
 
 	if (pam_get_item(pamh, PAM_CONV, (const void**)&pItem) != PAM_SUCCESS || !pItem) {
-		DEBUGMSG("Couldn't get pam_conv\n");
+		syslog(LOG_ERR, "Couldn't obtain PAM_CONV.");
 		return PAM_AUTH_ERR;
 	}
 
@@ -214,14 +219,14 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t* pamh, int flags, int argc, cons
 	pItem->conv(1, &pMsg, &pResp, pItem->appdata_ptr);
 
 	if (pam_get_item(pamh, PAM_RHOST, (const void**)&pHost) != PAM_SUCCESS) {
-		DEBUGMSG("Unable to obtain remote address.\n");
+		syslog(LOG_ERR, "Unable to obtain remote address.");
 		pHost = NULL;
 	}
 
 	ret = PAM_SUCCESS;
 
 	if (perform_authentication(pUrl, pUsername, pResp[0].resp, pCaFile, pKey, pHost, timeout) != 0) {
-		DEBUGMSG("Authentication failed.\n");
+		syslog(LOG_ERR, "Authentication failed.");
 		ret = PAM_AUTH_ERR;
 	}
 
