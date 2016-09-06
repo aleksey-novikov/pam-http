@@ -14,6 +14,14 @@ PAM_EXTERN int pam_sm_acct_mgmt(pam_handle_t *pamh, int flags, int argc, const c
 	return PAM_SUCCESS;
 }
 
+PAM_EXTERN  int pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, const char **argv) {
+    return PAM_SUCCESS;
+}
+
+PAM_EXTERN  int pam_sm_close_session(pam_handle_t *pamh, int flags, int argc, const char **argv) {
+    return PAM_SUCCESS;
+}
+
 /*
  * Makes getting arguments easier.
  *
@@ -142,7 +150,7 @@ static int perform_authentication(const char* pUrl, const char* pUsername, const
 
 	curl_easy_cleanup(pCurl);
 
-	syslog(LOG_DEBUG, "Authentication %s", res != 22 ? "successful" : "failed");
+	syslog(LOG_DEBUG, "Authentication %s.", res != 22 ? "successful" : "failed");
 
 	return res;
 }
@@ -166,12 +174,16 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t* pamh, int flags, int argc, cons
 
     openlog("pam_http", LOG_ODELAY, LOG_AUTH);
 
-    if(_get_argument("debug", argc, argv)) {
-        setlogmask(LOG_UPTO(LOG_DEBUG));
-    } else {
-        setlogmask(LOG_UPTO(LOG_WARNING));
-    } 
 
+    if (flags & PAM_SILENT) {
+        setlogmask(LOG_UPTO(LOG_EMERG));
+    } else {
+        if(_get_argument("debug", argc, argv)) {
+            setlogmask(LOG_UPTO(LOG_DEBUG));
+        } else {
+            setlogmask(LOG_UPTO(LOG_WARNING));
+        } 
+    }
 	syslog(LOG_DEBUG, "Entering pam_sm_authenticate.");
 
 	msg.msg_style = PAM_PROMPT_ECHO_OFF;
@@ -226,7 +238,6 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t* pamh, int flags, int argc, cons
 	ret = PAM_SUCCESS;
 
 	if (perform_authentication(pUrl, pUsername, pResp[0].resp, pCaFile, pKey, pHost, timeout) != 0) {
-		syslog(LOG_ERR, "Authentication failed.");
 		ret = PAM_AUTH_ERR;
 	}
 
