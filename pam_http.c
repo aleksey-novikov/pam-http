@@ -85,6 +85,9 @@ int lookup_cache(const char* pCacheDir, const char* pUsername, const char* pPass
     len_file = strlen(username_hash);
     len_payload = strlen(password_hash);
 
+    // Replace slashes that may appear in some hashes.
+    for (i = 0; i < len_file; i++) { if (username_hash[i] == '/') username_hash[i] = '_'; }
+
     path = (char *) malloc(sizeof(char) * (len_dir + len_file + 1));
 
     if (pCacheDir[len_dir-1] == '/') 
@@ -137,7 +140,7 @@ int lookup_cache(const char* pCacheDir, const char* pUsername, const char* pPass
 
 int store_cache(const char* pCacheDir, const char* pUsername, const char* pPassword, const char* pSalt) {
 
-    int len_dir, len_file;
+    int len_dir, len_file, i;
     char* path;
     FILE* fd;
     char* password_hash;
@@ -148,6 +151,9 @@ int store_cache(const char* pCacheDir, const char* pUsername, const char* pPassw
 
     len_dir = strlen(pCacheDir);
     len_file = strlen(username_hash);
+
+    // Replace slashes that may appear in some hashes.
+    for (i = 0; i < len_file; i++) { if (username_hash[i] == '/') username_hash[i] = '_'; }
 
     path = (char *) malloc(sizeof(char) * (len_dir + len_file + 1));
 
